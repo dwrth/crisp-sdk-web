@@ -1,4 +1,4 @@
-import CrispMessage from "./message";
+import CrispMessage from './message';
 
 export {
   AnimationMessage,
@@ -6,26 +6,20 @@ export {
   FileMessage,
   PickerMessage,
   PickerMessageChoices,
-  FieldMessage
-} from "./message";
+  FieldMessage,
+} from './message';
 
-import CrispUser from "./user";
+import CrispUser from './user';
 
-export {
-  CompanyData,
-  CompanyDataEmployment,
-  CompanyDataGeolocation
-} from "./user";
+export { CompanyData, CompanyDataEmployment, CompanyDataGeolocation } from './user';
 
-import CrispTrigger from "./trigger";
+import CrispTrigger from './trigger';
 
-import CrispSession from "./session";
+import CrispSession from './session';
 
-export {
-  EventsColors
-} from "./session";
+export { EventsColors } from './session';
 
-import CrispChat from "./chat";
+import CrispChat from './chat';
 
 /* eslint-disable no-var, @typescript-eslint/no-explicit-any */
 declare global {
@@ -38,51 +32,50 @@ declare global {
 }
 /* eslint-enable no-var, @typescript-eslint/no-explicit-any */
 
-
 export type Options = {
-  clientUrl?: string
-  autoload?: boolean,
-  tokenId?: string
-  locale?: string
-  sessionMerge?: boolean
-  cookieDomain?: string
-  cookieExpire?: number
-  lockMaximized?: boolean
-  lockFullview?: boolean
-  safeMode?: boolean
+  clientUrl?: string;
+  autoload?: boolean;
+  tokenId?: string;
+  locale?: string;
+  sessionMerge?: boolean;
+  cookieDomain?: string;
+  cookieExpire?: number;
+  lockMaximized?: boolean;
+  lockFullview?: boolean;
+  safeMode?: boolean;
 };
 
 export enum ChatboxColors {
-  Default = "default",
-  Amber = "amber",
-  Black = "black",
-  Blue = "blue",
-  BlueGrey = "blue_grey",
-  LightBlue = "light_blue",
-  Brown = "brown",
-  Cyan = "cyan",
-  Green = "green",
-  LightGreen = "light_green",
-  Grey = "grey",
-  Indigo = "indigo",
-  Orange = "orange",
-  DeepOrange = "deep_orange",
-  Pink = "pink",
-  Purple = "purple",
-  DeepPurple = "deep_purple",
-  Red = "red",
-  Teal = "teal",
+  Default = 'default',
+  Amber = 'amber',
+  Black = 'black',
+  Blue = 'blue',
+  BlueGrey = 'blue_grey',
+  LightBlue = 'light_blue',
+  Brown = 'brown',
+  Cyan = 'cyan',
+  Green = 'green',
+  LightGreen = 'light_green',
+  Grey = 'grey',
+  Indigo = 'indigo',
+  Orange = 'orange',
+  DeepOrange = 'deep_orange',
+  Pink = 'pink',
+  Purple = 'purple',
+  DeepPurple = 'deep_purple',
+  Red = 'red',
+  Teal = 'teal',
 }
 
 export enum ChatboxPosition {
-  Left = "left",
-  Right = "right",
+  Left = 'left',
+  Right = 'right',
 }
 
 class Crisp {
   // Options
-  private clientUrl: string = "https://client.crisp.chat/l.js";
-  private websiteId: string = "";
+  private clientUrl: string = 'https://client.crisp.chat/l.js';
+  private websiteId: string = '';
   private autoload: boolean = true;
   private tokenId?: string;
   private locale?: string;
@@ -104,11 +97,18 @@ class Crisp {
   trigger: CrispTrigger;
 
   constructor() {
-    this.chat    = new CrispChat(this);
+    this.chat = new CrispChat(this);
     this.session = new CrispSession(this);
-    this.user    = new CrispUser(this);
+    this.user = new CrispUser(this);
     this.message = new CrispMessage(this);
     this.trigger = new CrispTrigger(this);
+  }
+
+  /**
+   * Returns currently configured website ID (empty string if not configured).
+   */
+  getWebsiteId(): string {
+    return this.websiteId;
   }
 
   configure(websiteId: string, options: Options = {}) {
@@ -136,8 +136,19 @@ class Crisp {
     }
   }
 
+  /**
+   * Completely teardown current Crisp injection and re-configure with a new website ID.
+   *
+   * This is intended for advanced use-cases where the host application needs to
+   * switch the Crisp website on the fly, without doing a full page reload.
+   */
+  reconfigure(websiteId: string, options: Options = {}) {
+    this.destroy();
+    this.configure(websiteId, options);
+  }
+
   load() {
-    const _head = document.getElementsByTagName("head");
+    const _head = document.getElementsByTagName('head');
 
     this.createSingletonIfNecessary();
 
@@ -147,7 +158,7 @@ class Crisp {
     }
 
     if (!this.websiteId) {
-      throw new Error("websiteId must be set before loading Crisp");
+      throw new Error('websiteId must be set before loading Crisp');
     }
 
     window.CRISP_WEBSITE_ID = this.websiteId;
@@ -189,7 +200,7 @@ class Crisp {
       this.setSafeMode(true);
     }
 
-    const _script = document.createElement("script");
+    const _script = document.createElement('script');
 
     _script.src = this.clientUrl;
     _script.async = true;
@@ -197,6 +208,118 @@ class Crisp {
     _head[0].appendChild(_script);
 
     this.injected = true;
+  }
+
+  /**
+   * Destroys current Crisp instance:
+   * - Closes chat and resets session (without reloading the page)
+   * - Removes injected Crisp script tag
+   * - Removes Crisp DOM elements (chat widget, iframes, etc.)
+   * - Clears Crisp-related globals
+   * - Resets local injected state and $crisp queue
+   *
+   * This does not affect any persisted cookies on the Crisp side.
+   */
+  destroy() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Attempt to gracefully close and reset the current session
+    try {
+      if (this.isCrispInjected() && window.$crisp) {
+        try {
+          window.$crisp.push(['do', 'chat:close']);
+        } catch {
+          // ignore
+        }
+
+        try {
+          window.$crisp.push(['do', 'session:reset', [false]]);
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // ignore any unexpected runtime errors
+    }
+
+    // Remove Crisp DOM elements (chat widget, containers, iframes)
+    try {
+      // Remove elements with Crisp-related IDs or classes
+      const crispSelectors = ['[id*="crisp"]', '[class*="crisp"]', '[id*="Crisp"]', '[class*="Crisp"]'];
+
+      crispSelectors.forEach((selector) => {
+        try {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach((el) => {
+            try {
+              if (el.parentNode) {
+                el.parentNode.removeChild(el);
+              }
+            } catch {
+              // ignore individual element removal errors
+            }
+          });
+        } catch {
+          // ignore selector errors
+        }
+      });
+
+      // Remove iframes that might be Crisp-related (common pattern for chat widgets)
+      const iframes = Array.from(document.getElementsByTagName('iframe'));
+      iframes.forEach((iframe) => {
+        try {
+          const src = iframe.src || '';
+          if (src.includes('crisp.chat') || src.includes('crisp.im')) {
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      });
+    } catch {
+      // ignore DOM cleanup errors
+    }
+
+    // Remove previously injected Crisp script tag
+    try {
+      const scripts = Array.prototype.slice.call(document.getElementsByTagName('script')) as HTMLScriptElement[];
+
+      scripts.forEach((script) => {
+        if (script.src === this.clientUrl || script.src.includes('crisp.chat') || script.src.includes('crisp.im')) {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        }
+      });
+    } catch {
+      // ignore
+    }
+
+    // Clear globals Crisp uses for configuration
+    try {
+      delete (window as any).CRISP_WEBSITE_ID;
+      delete (window as any).CRISP_TOKEN_ID;
+      delete (window as any).CRISP_RUNTIME_CONFIG;
+      delete (window as any).CRISP_COOKIE_DOMAIN;
+      delete (window as any).CRISP_COOKIE_EXPIRE;
+      delete (window as any).CRISP_READY_TRIGGER;
+    } catch {
+      // ignore
+    }
+
+    // Reset $crisp back to a plain queue so that future calls are async-safe
+    try {
+      (window as any).$crisp = [];
+    } catch {
+      // ignore
+    }
+
+    // Local state
+    this.injected = false;
   }
 
   setTokenId(tokenId?: string) {
@@ -215,63 +338,61 @@ class Crisp {
   setZIndex(zIndex: number) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "container:index", [zIndex]]);
+    window.$crisp.push(['config', 'container:index', [zIndex]]);
   }
 
   setColorTheme(color: ChatboxColors) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "color:theme", [color]]);
+    window.$crisp.push(['config', 'color:theme', [color]]);
   }
 
   setHideOnAway(enabled: boolean) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "hide:on:away", [enabled]]);
+    window.$crisp.push(['config', 'hide:on:away', [enabled]]);
   }
 
   setHideOnMobile(enabled: boolean) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "hide:on:mobile", [enabled]]);
+    window.$crisp.push(['config', 'hide:on:mobile', [enabled]]);
   }
 
   setPosition(position: ChatboxPosition) {
     this.createSingletonIfNecessary();
 
-    $crisp.push(["config", "position:reverse", [
-      position === ChatboxPosition.Left
-    ]]);
+    $crisp.push(['config', 'position:reverse', [position === ChatboxPosition.Left]]);
   }
 
   setAvailabilityTooltip(enabled: boolean) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "availability:tooltip", [enabled]]);
+    window.$crisp.push(['config', 'availability:tooltip', [enabled]]);
   }
 
   setVacationMode(enabled: boolean) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "hide:vacation", [enabled]]);
+    window.$crisp.push(['config', 'hide:vacation', [enabled]]);
   }
 
   setSafeMode(safe: boolean = true) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["safe", safe]);
+    window.$crisp.push(['safe', safe]);
   }
 
   muteSound(mute: boolean) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "sound:mute", [mute]]);
+    window.$crisp.push(['config', 'sound:mute', [mute]]);
   }
 
   toggleOperatorCount(enabled: boolean) {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["config", "show:operator:count", [enabled]]);
+    window.$crisp.push(['config', 'show:operator:count', [enabled]]);
   }
 
   onWebsiteAvailabilityChanged(callback: Function) {
@@ -279,13 +400,13 @@ class Crisp {
 
     this.offWebsiteAvailabilityChanged();
 
-    window.$crisp.push(["on", "website:availability:changed", callback]);
+    window.$crisp.push(['on', 'website:availability:changed', callback]);
   }
 
   offWebsiteAvailabilityChanged() {
     this.createSingletonIfNecessary();
 
-    window.$crisp.push(["off", "website:availability:changed"]);
+    window.$crisp.push(['off', 'website:availability:changed']);
   }
 
   createSingletonIfNecessary() {
@@ -312,7 +433,7 @@ class Crisp {
   }
 
   private deferredLoading() {
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener('DOMContentLoaded', () => {
       this.load();
     });
   }
@@ -320,7 +441,4 @@ class Crisp {
 
 const singleton = new Crisp();
 
-export {
-  singleton as Crisp,
-  Crisp as CrispClass
-};
+export { singleton as Crisp, Crisp as CrispClass };
