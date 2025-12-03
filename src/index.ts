@@ -307,6 +307,9 @@ class Crisp {
       delete (window as any).CRISP_COOKIE_DOMAIN;
       delete (window as any).CRISP_COOKIE_EXPIRE;
       delete (window as any).CRISP_READY_TRIGGER;
+      // Internal loader globals used by l.js
+      delete (window as any).$__CRISP_INCLUDED;
+      delete (window as any).$__CRISP_INSTANCE;
     } catch {
       // ignore
     }
